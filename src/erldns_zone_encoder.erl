@@ -100,6 +100,7 @@ zone_to_json(Zone, Encoders) ->
                               {<<"name">>, Zone#zone.name},
                               {<<"version">>, Zone#zone.version},
                               {<<"records">>, FilteredRecords}
+                              % Note: Private key material is purposely omitted
                              ]}
                ]
               }]).
@@ -108,6 +109,7 @@ record_filter() ->
   fun(R) ->
       case R of
         [] -> false;
+        {} -> false;
         _ -> true
       end
   end.
@@ -153,6 +155,14 @@ encode_record({dns_rr, Name, _, Type = ?DNS_TYPE_SRV, Ttl, Data}) ->
   encode_record(Name, Type, Ttl, Data);
 encode_record({dns_rr, Name, _, Type = ?DNS_TYPE_NAPTR, Ttl, Data}) ->
   encode_record(Name, Type, Ttl, Data);
+encode_record({dns_rr, Name, _, Type = ?DNS_TYPE_CAA, Ttl, Data}) ->
+  encode_record(Name, Type, Ttl, Data);
+encode_record({dns_rr, Name, _, Type = ?DNS_TYPE_DS, Ttl, Data}) ->
+  encode_record(Name, Type, Ttl, Data);
+encode_record({dns_rr, Name, _, Type = ?DNS_TYPE_DNSKEY, Ttl, Data}) ->
+  encode_record(Name, Type, Ttl, Data);
+encode_record({dns_rr, Name, _, Type = ?DNS_TYPE_RRSIG, Ttl, Data}) ->
+  encode_record(Name, Type, Ttl, Data);
 encode_record(Record) ->
   lager:debug("Unable to encode record: ~p", [Record]),
   [].
@@ -183,6 +193,8 @@ encode_data({dns_rrdata_a, Address}) ->
   list_to_binary(inet_parse:ntoa(Address));
 encode_data({dns_rrdata_aaaa, Address}) ->
   list_to_binary(inet_parse:ntoa(Address));
+encode_data({dns_rrdata_caa, Flags, Tag, Value}) ->
+  erlang:iolist_to_binary(io_lib:format("~w ~s \"~s\"", [Flags, Tag, Value]));
 encode_data({dns_rrdata_cname, Dname}) ->
   erlang:iolist_to_binary(io_lib:format("~s.", [Dname]));
 encode_data({dns_rrdata_mx, Preference, Dname}) ->
@@ -200,6 +212,12 @@ encode_data({dns_rrdata_srv, Priority, Weight, Port, Dname}) ->
   erlang:iolist_to_binary(io_lib:format("~w ~w ~w ~s.", [Priority, Weight, Port, Dname]));
 encode_data({dns_rrdata_naptr, Order, Preference, Flags, Services, Regexp, Replacements}) ->
   erlang:iolist_to_binary(io_lib:format("~w ~w ~s ~s ~s ~s", [Order, Preference, Flags, Services, Regexp, Replacements]));
+encode_data({dns_rrdata_ds, Keytag, Alg, DigestType, Digest}) ->
+  erlang:iolist_to_binary(io_lib:format("~w ~w ~w ~s", [Keytag, Alg, DigestType, Digest]));
+encode_data({dns_rrdata_dnskey, Flags, Protocol, Alg, Key, KeyTag}) ->
+  erlang:iolist_to_binary(io_lib:format("~w ~w ~w ~w ~w", [Flags, Protocol, Alg, Key, KeyTag]));
+encode_data({dns_rrdata_rrsig, TypeCovered, Alg, Labels, OriginalTtl, Expiration, Inception, KeyTag, SignersName, Signature}) ->
+  erlang:iolist_to_binary(io_lib:format("~w ~w ~w ~w ~w ~w ~w ~w ~s", [TypeCovered, Alg, Labels, OriginalTtl, Expiration, Inception, KeyTag, SignersName, Signature]));
 encode_data(Data) ->
   lager:debug("Unable to encode data: ~p", [Data]),
   {}.
