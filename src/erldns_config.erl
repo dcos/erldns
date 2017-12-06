@@ -88,7 +88,13 @@ get_servers() ->
              {processes, keyget(processes, Server, 1)}
             ]
         end, Servers);
-    _ -> []
+    undefined ->
+        lists:map(fun (Family) ->
+            [{name, Family},
+             {address, erldns_config:get_address(Family)},
+             {port, erldns_config:get_port()},
+             {family, Family}]
+        end, [inet, inet6])
   end.
 
 -ifdef(TEST).
