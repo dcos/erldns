@@ -279,18 +279,13 @@ resolve_exact_match_with_cname(Message, Qtype, Host, CnameChain, _MatchedRecords
 
 
 
-% The CNAME is in a zone. If it is the same zone, then continue the chain, otherwise return the message
+% The CNAME is in the zone so we do not need to look it up again.
 restart_query(Message, Name, Qtype, Host, CnameChain, Zone, true) ->
-  Parent = check_if_parent(Zone#zone.name, Name),
-  case Parent of
-    true ->
-      resolve(Message, Name, Qtype, Zone, Host, CnameChain);
-    false ->
-      Message
-  end;
-% The CNAME is not in a zone, do not restart the query, return the answer.
-restart_query(Message, _Name, _Qtype, _Host, _CnameChain, _Zone, false) ->
-  Message.
+  resolve(Message, Name, Qtype, Zone, Host, CnameChain);
+% The CNAME is not in the zone, so we need to find the zone using the
+% CNAME content.
+restart_query(Message, Name, Qtype, Host, CnameChain, _Zone, false) ->
+  resolve(Message, Name, Qtype, erldns_zone_cache:find_zone(Name), Host, CnameChain).
 
 % Delegated, but in the same zone.
 restart_delegated_query(Message, Name, Qtype, Host, CnameChain, Zone, true) ->
