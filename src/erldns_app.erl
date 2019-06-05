@@ -1,4 +1,4 @@
-%% Copyright (c) 2012-2015, Aetrion LLC
+%% Copyright (c) 2012-2018, DNSimple Corporation
 %%
 %% Permission to use, copy, modify, and/or distribute this software for any
 %% purpose with or without fee is hereby granted, provided that the above
@@ -78,6 +78,9 @@ setup_metrics() ->
 
   folsom_metrics:new_counter(packet_dropped_empty_queue_counter),
   folsom_metrics:new_meter(packet_dropped_empty_queue_meter),
+
+  folsom_metrics:new_counter(worker_timeout_counter),
+  folsom_metrics:new_meter(worker_timeout_meter),
 
   folsom_metrics:new_meter(cache_hit_meter),
   folsom_metrics:new_meter(cache_expired_meter),

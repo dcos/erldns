@@ -1,4 +1,4 @@
-%% Copyright (c) 2012-2015, Aetrion LLC
+%% Copyright (c) 2012-2018, DNSimple Corporation
 %%
 %% Permission to use, copy, modify, and/or distribute this software for any
 %% purpose with or without fee is hereby granted, provided that the above
@@ -71,14 +71,6 @@ gc_registered(ProcessName) ->
 
 %% Callbacks
 init(_Args) ->
-  {ok, AppPools} = application:get_env(erldns, pools),
-  AppPoolSpecs = lists:map(fun({PoolName, WorkerModule, PoolConfig}) ->
-                               Args = [{name, {local, PoolName}},
-                                       {worker_module, WorkerModule}]
-                               ++ PoolConfig,
-                               poolboy:child_spec(PoolName, Args)
-                           end, AppPools),
-
   SysProcs = [
               ?CHILD(erldns_events, worker, []),
               ?CHILD(erldns_zone_cache, worker, []),
@@ -91,4 +83,4 @@ init(_Args) ->
               ?CHILD(sample_custom_handler, worker, [])
              ],
 
-  {ok, {{one_for_one, 20, 10}, SysProcs ++ AppPoolSpecs}}.
+  {ok, {{one_for_one, 20, 10}, SysProcs}}.
