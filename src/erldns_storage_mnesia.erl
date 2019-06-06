@@ -49,11 +49,11 @@ create(schema) ->
     ok ->
       ok;
     {error, Reason} ->
-      lager:warning("Could not stop mnesia for reason ~p~n", [Reason])
+      lager:warning("Could not stop mnesia (reason: ~p)", [Reason])
   end,
   case mnesia:create_schema([node()]) of
     {error, {_, {already_exists, _}}} ->
-      lager:warning("The schema already exists on node ~p.~n", [node()]),
+      lager:warning("The schema already exists (node: ~p)", [node()]),
       ok;
     ok ->
       ok
@@ -73,8 +73,7 @@ create(zones) ->
                             {record_name, zone},
                             {disc_copies, [node()]}]) of
     {aborted, {already_exists, zones}} ->
-      lager:warning("The zone table already exists on node ~p.~n",
-                    [node()]),
+      lager:warning("The zone table already exists (node: ~p)", [node()]),
       ok;
     {atomic, ok} ->
       ok;
@@ -87,8 +86,7 @@ create(authorities) ->
                            [{attributes, record_info(fields, authorities)},
                             {disc_copies, [node()]}]) of
     {aborted, {already_exists, authorities}} ->
-      lager:warning("The authority table already exists on node ~p.~n",
-                    [node()]),
+      lager:warning("The authority table already exists (node: ~p)", [node()]),
       ok;
     {atomic, ok} ->
       ok;
@@ -137,24 +135,14 @@ delete_table(Table) ->
 %% in the table creation.
 -spec delete(Table :: atom(), Key :: term()) -> ok | any().
 delete(zones, Key)->
-  case mnesia:dirty_delete({zones, Key}) of
-    ok ->
-      ok;
-    Error ->
-      {error, Error}
-  end;
+  mnesia:dirty_delete({zones, Key});
 delete(Table, Key)->
   case mnesia:is_transaction() of
     true ->
       Delete = fun() -> mnesia:delete({Table, Key}) end,
       mnesia:activity(transaction, Delete);
     false ->
-      case mnesia:dirty_delete({Table, Key}) of
-        ok ->
-          ok;
-        Error ->
-          {error, Error}
-      end
+      mnesia:dirty_delete({Table, Key})
   end.
 
 

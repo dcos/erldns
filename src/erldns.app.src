@@ -11,9 +11,9 @@
                   jsx,
                   ssl,
                   mnesia,
-                  observer,
                   bear,
                   folsom,
+                  iso8601,
                   poolboy]},
   {start_phases, [{post_start, []}]}
   ]}.

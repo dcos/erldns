@@ -12,17 +12,21 @@
 %% ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 %% OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-%% @doc Sample custom zone parser.
--module(sample_custom_zone_parser).
+%% @doc Supervisor that allows terminate and restart of an erldns_worker_process
+%% that is attached to an erldns_worker.
+-module(erldns_worker_process_sup).
 
--include_lib("dns/include/dns.hrl").
--include("erldns.hrl").
+-behavior(supervisor).
 
--export([json_record_to_erlang/1]).
+-export([start_link/1]).
 
--define(DNS_TYPE_SAMPLE, 40000).
+-export([init/1]).
 
-json_record_to_erlang([Name, <<"SAMPLE">>, Ttl, Data, _Context]) ->
-  #dns_rr{name = Name, type = ?DNS_TYPE_SAMPLE, data = erldns_config:keyget(<<"dname">>, Data), ttl = Ttl};
+start_link([WorkerId]) ->
+  % This supervisor is registered without a name. An alternative
+  % if a name is necessary is to create an atom() using the WorkerId
+  % value combined with the module name
+  supervisor:start_link(?MODULE, [WorkerId]).
 
-json_record_to_erlang(_) -> {}.
+init(WorkerId) ->
+  {ok, {{one_for_one, 20, 10}, [{{WorkerId, erldns_worker_process}, {erldns_worker_process, start_link, [[]]}, permanent, brutal_kill, worker, [erldns_worker_process]}]}}. 

@@ -2,7 +2,7 @@
 
 Serve DNS authoritative responses...with Erlang.
 
-[![Build Status](https://travis-ci.org/aetrion/erl-dns.png?branch=master)](https://travis-ci.org/aetrion/erl-dns)
+[![Build Status](https://travis-ci.org/dnsimple/erl-dns.png?branch=master)](https://travis-ci.org/dnsimple/erl-dns)
 
 ## Building
 
@@ -16,9 +16,11 @@ If you've already built once and just want to recompile the erl-dns source:
 
 ## Zones
 
-Zones are loaded in from JSON, either locally or through a zone server (more info coming on this).
+Zones are loaded from JSON.
 
 Example JSON files are in the priv/ directory.
+
+You can also write new systems to load zones by writing the zones directly to the zone cache using `erldns_zone_cache:put_zone/1`.
 
 ## Configuration
 
@@ -58,9 +60,9 @@ In our environment (DNSimple) we are seeing 30 to 65 µs handoff times to retrei
 
 ## Design
 
-The erldns_resolver module will attempt to find zone data in the zone cache. If you're embedding erl-dns in your application the easiest thing to do is to load the zone cache once the zone cache gen_server starts push an updated zone into the cache each time data changes.
+The `erldns_resolver` module will attempt to find zone data in the zone cache. If you're embedding erl-dns in your application the easiest thing to do is to load the zone cache once the zone cache `gen_server` starts push an updated zone into the cache each time data changes.
 
-To insert a zone, use erldns_zone_cache:put_zone({Name, Records}) where Name is a binary term such as <<"example.com">> and Records is a list of dns_rr records (whose definitions can be found in deps/dns/include/dns_records.hrl). The name of each record must be the fully qualified domain name (including the zone part).
+To insert a zone, use `erldns_zone_cache:put_zone({Name, Records})` where Name is a binary term such as <<"example.com">> and Records is a list of `dns_rr` records (whose definitions can be found in `deps/dns/include/dns_records.hrl`). The name of each record must be the fully qualified domain name (including the zone part).
 
 Here's an example:
 
@@ -86,8 +88,8 @@ erldns_zone_cache:put_zone({
 
 Folsom is used to gather runtime metrics and statistics.
 
-There is an HTTP API for querying metric data available at https://github.com/aetrion/erldns-metrics
+There is an HTTP API for querying metric data available at https://github.com/dnsimple/erldns-metrics
 
 ## Admin
 
-There is a administrative API for querying the current zone cache and for basic control. You can find it in https://github.com/aetrion/erldns-admin
+There is a administrative API for querying the current zone cache and for basic control. You can find it in https://github.com/dnsimple/erldns-admin

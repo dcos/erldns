@@ -1,4 +1,4 @@
-%% Copyright (c) 2012-2015, Aetrion LLC
+%% Copyright (c) 2012-2018, DNSimple Corporation
 %%
 %% Permission to use, copy, modify, and/or distribute this software for any
 %% purpose with or without fee is hereby granted, provided that the above
@@ -93,7 +93,7 @@ handle(Message, _Zone, _Qname, _Qtype, _DnssecRequested = true, []) ->
   % DNSSEC requested, zone unsigned
   Message;
 handle(Message, Zone, Qname, _Qtype, _DnssecRequested = true, _Keysets) ->
-  lager:debug("DNSSEC requested for ~p", [Zone#zone.name]),
+  % lager:debug("DNSSEC requested (name: ~p)", [Zone#zone.name]),
   Authority = lists:last(Zone#zone.authority),
   Ttl = Authority#dns_rr.data#dns_rrdata_soa.minimum,
   {ok, ZoneWithRecords} = erldns_zone_cache:get_zone_with_records(Zone#zone.name),
@@ -103,12 +103,12 @@ handle(Message, Zone, Qname, _Qtype, _DnssecRequested = true, _Keysets) ->
       ApexRRSigRecords = lists:filter(erldns_records:match_type(?DNS_TYPE_RRSIG), ApexRecords),
       SoaRRSigRecords = lists:filter(erldns_records:match_type_covered(?DNS_TYPE_SOA), ApexRRSigRecords),
 
-      NextDname = dns:labels_to_dname([?NEXT_DNAME_PART] ++ dns:dname_to_labels(Qname)),
+      NextDname = erldns:normalize_name(dns:labels_to_dname([?NEXT_DNAME_PART] ++ dns:dname_to_labels(Qname))),
       Types = record_types_for_name(Qname, ZoneWithRecords#zone.records),
       NsecRecords = [#dns_rr{name = Qname, type = ?DNS_TYPE_NSEC, ttl = Ttl, data = #dns_rrdata_nsec{next_dname = NextDname, types = Types}}],
       NsecRRSigRecords = rrsig_for_zone_rrset(Zone, NsecRecords),
 
-      erldns_records:rewrite_soa_ttl(sign_unsigned(Message#dns_message{ad = true, authority = Message#dns_message.authority ++ NsecRecords ++ SoaRRSigRecords ++ NsecRRSigRecords}, Zone));
+      erldns_records:rewrite_soa_ttl(sign_unsigned(Message#dns_message{ad = true, rc = ?DNS_RCODE_NOERROR, authority = Message#dns_message.authority ++ NsecRecords ++ SoaRRSigRecords ++ NsecRRSigRecords}, Zone));
     _ ->
       AnswerSignatures = find_rrsigs(ZoneWithRecords#zone.records, Message#dns_message.answers),
       AuthoritySignatures = find_rrsigs(ZoneWithRecords#zone.records, Message#dns_message.authority),
