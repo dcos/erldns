@@ -6,13 +6,9 @@ Serve DNS authoritative responses...with Erlang.
 
 ## Building
 
-To build clean:
+To build:
 
-    ./build.sh
-
-If you've already built once and just want to recompile the erl-dns source:
-
-    ./rebar compile
+    rebar3 compile
 
 ## Zones
 
@@ -32,7 +28,7 @@ Copy it to erldns.config and modify as needed.
 
 Launch directly:
 
-    erl -config erldns.config -pa ebin -pa deps/**/ebin -s erldns
+    rebar3 shell
 
 Or use Foreman:
 
