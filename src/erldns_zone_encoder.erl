@@ -115,12 +115,7 @@ record_filter() ->
   end.
 
 records_to_json(Zone, Encoders) ->
-  lists:map(encode(Encoders), Zone#zone.records).
-
-encode(Encoders) ->
-  fun(Record) ->
-      encode_record(Record, Encoders)
-  end.
+  [encode_record(R, Encoders) || RR <- maps:values(Zone#zone.records_by_name), R <- RR].
 
 encode_record(Record, Encoders) ->
   lager:debug("Encoding record (record: ~p)", [Record]),
