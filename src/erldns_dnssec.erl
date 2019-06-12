@@ -104,26 +104,27 @@ handle(Message, Zone, Qname, _Qtype, _DnssecRequested = true, _Keysets) ->
       SoaRRSigRecords = lists:filter(erldns_records:match_type_covered(?DNS_TYPE_SOA), ApexRRSigRecords),
 
       NextDname = erldns:normalize_name(dns:labels_to_dname([?NEXT_DNAME_PART] ++ dns:dname_to_labels(Qname))),
-      Types = record_types_for_name(Qname, ZoneWithRecords#zone.records),
+      Types = record_types_for_name(Qname, ZoneWithRecords#zone.records_by_name),
       NsecRecords = [#dns_rr{name = Qname, type = ?DNS_TYPE_NSEC, ttl = Ttl, data = #dns_rrdata_nsec{next_dname = NextDname, types = Types}}],
       NsecRRSigRecords = rrsig_for_zone_rrset(Zone, NsecRecords),
 
       erldns_records:rewrite_soa_ttl(sign_unsigned(Message#dns_message{ad = true, rc = ?DNS_RCODE_NOERROR, authority = Message#dns_message.authority ++ NsecRecords ++ SoaRRSigRecords ++ NsecRRSigRecords}, Zone));
     _ ->
-      AnswerSignatures = find_rrsigs(ZoneWithRecords#zone.records, Message#dns_message.answers),
-      AuthoritySignatures = find_rrsigs(ZoneWithRecords#zone.records, Message#dns_message.authority),
+      AnswerSignatures = find_rrsigs(ZoneWithRecords#zone.records_by_name, Message#dns_message.answers),
+      AuthoritySignatures = find_rrsigs(ZoneWithRecords#zone.records_by_name, Message#dns_message.authority),
       erldns_records:rewrite_soa_ttl(sign_unsigned(Message#dns_message{ad = true, answers = Message#dns_message.answers ++ AnswerSignatures, authority = Message#dns_message.authority ++ AuthoritySignatures}, Zone))
   end;
 handle(Message, _Zone, _Qname, _Qtype, _DnssecRequest = false, _) ->
   Message.
 
--spec(find_rrsigs([dns:rr()], [dns:rr()]) -> [dns:rr()]).
-find_rrsigs(ZoneRecords, MessageRecords) ->
-  NamesAndTypes = lists:usort(lists:map(fun(RR) -> {RR#dns_rr.name, RR#dns_rr.type} end, MessageRecords)),
+-spec(find_rrsigs(#{dns:dname() => dns:rr()}, [dns:rr()]) -> [dns:rr()]).
+find_rrsigs(ZoneRecordsByName, MessageRecords) ->
+  NamesAndTypes = lists:usort([{RR#dns_rr.name, RR#dns_rr.type} || RR <- MessageRecords]),
   lists:flatten(
     lists:map(
       fun({Name, Type}) ->
-          NamedRRSigs = lists:filter(erldns_records:match_name_and_type(Name, ?DNS_TYPE_RRSIG), ZoneRecords),
+          Records = maps:get(Name, ZoneRecordsByName),
+          NamedRRSigs = lists:filter(erldns_records:match_type(?DNS_TYPE_RRSIG), Records),
           lists:filter(erldns_records:match_type_covered(Type), NamedRRSigs)
       end, NamesAndTypes)).
 
@@ -140,8 +141,9 @@ find_unsigned_records(Records) ->
         (RR#dns_rr.type =/= ?DNS_TYPE_RRSIG) and (lists:filter(erldns_records:match_name_and_type(RR#dns_rr.name, ?DNS_TYPE_RRSIG), Records) =:= [])
     end, Records).
 
-record_types_for_name(Name, Records) ->
-  RecordsAtName = lists:filter(erldns_records:match_name(Name), Records),
+-spec(record_types_for_name(dns:dname(), #{dns:dname() => dns:rr()}) -> [dns:type()]).
+record_types_for_name(Name, RecordsByName) ->
+  RecordsAtName = maps:get(Name, RecordsByName),
   TypesCovered = lists:map(fun(RR) -> RR#dns_rr.type end, RecordsAtName),
   lists:usort(TypesCovered ++ [?DNS_TYPE_RRSIG, ?DNS_TYPE_NSEC]).
 

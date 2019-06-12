@@ -99,7 +99,10 @@ get_servers() ->
 
 -ifdef(TEST).
 get_servers_undefined_test() ->
-  ?assertEqual([], get_servers()).
+  ?assertEqual([
+                [{name,inet}, {address,{127,0,0,1}}, {port,53}, {family,inet}],
+                [{name,inet6}, {address,{0,0,0,0,0,0,0,1}}, {port,53}, {family,inet6}]
+               ], get_servers()).
 
 get_servers_empty_list_test() ->
   application:set_env(erldns, servers, []),

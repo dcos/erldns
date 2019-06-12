@@ -103,7 +103,7 @@ find_zone(Qname, Authority) when is_record(Authority, dns_rr) ->
 get_zone(Name) ->
   NormalizedName = erldns:normalize_name(Name),
   case erldns_storage:select(zones, NormalizedName) of
-    [{NormalizedName, Zone}] -> {ok, Zone#zone{name = NormalizedName, records = [], records_by_name=trimmed}};
+    [{NormalizedName, Zone}] -> {ok, Zone#zone{name = NormalizedName, records_by_name=#{}}};
     _ -> {error, zone_not_found}
   end.
 
@@ -137,7 +137,9 @@ get_authority(Name) ->
 get_delegations(Name) ->
   case find_zone_in_cache(Name) of
     {ok, Zone} ->
-      lists:filter(fun(R) -> apply(erldns_records:match_type(?DNS_TYPE_NS), [R]) and apply(erldns_records:match_delegation(Name), [R]) end, Zone#zone.records);
+      [ RR || RRs <- maps:values(Zone#zone.records_by_name), RR <- RRs,
+        (erldns_records:match_type(?DNS_TYPE_NS))(RR),
+        (erldns_records:match_delegation(Name))(RR) ];
     _ ->
       []
   end.
@@ -261,7 +263,7 @@ find_zone_in_cache(Name, [_|Labels]) ->
 build_zone(Qname, Version, Records, Keys) ->
   RecordsByName = build_named_index(Records),
   Authorities = lists:filter(erldns_records:match_type(?DNS_TYPE_SOA), Records),
-  #zone{name = Qname, version = Version, record_count = length(Records), authority = Authorities, records = Records, records_by_name = RecordsByName, keysets = Keys}.
+  #zone{name = Qname, version = Version, record_count = length(Records), authority = Authorities, records_by_name = RecordsByName, keysets = Keys}.
 
 -spec(build_named_index([#dns_rr{}]) -> #{binary() => [#dns_rr{}]}).
 build_named_index(Records) ->
@@ -276,14 +278,16 @@ sign_zone(Zone = #zone{keysets = []}) ->
   Zone;
 sign_zone(Zone) ->
   lager:debug("Signing zone (name: ~p)", [Zone#zone.name]),
-  DnskeyRRs = lists:filter(erldns_records:match_type(?DNS_TYPE_DNSKEY), Zone#zone.records),
+  ZoneRecords = lists:append(maps:values(Zone#zone.records_by_name)),
+  {DnskeyRRs, NonDnskeyRRs} = lists:partition(erldns_records:match_type(?DNS_TYPE_DNSKEY), ZoneRecords),
   KeyRRSigRecords = lists:flatten(lists:map(erldns_dnssec:key_rrset_signer(Zone#zone.name, DnskeyRRs), Zone#zone.keysets)),
 
   verify_zone(Zone, DnskeyRRs, KeyRRSigRecords),
 
   % TODO: remove wildcard signatures as they will not be used but are taking up space
-  ZoneRRSigRecords = lists:flatten(lists:map(erldns_dnssec:zone_rrset_signer(Zone#zone.name, lists:filter(fun(RR) -> (RR#dns_rr.type =/= ?DNS_TYPE_DNSKEY) end, Zone#zone.records)), Zone#zone.keysets)),
-  build_zone(Zone#zone.name, Zone#zone.version, Zone#zone.records ++ KeyRRSigRecords ++ rewrite_soa_rrsig_ttl(Zone#zone.records, ZoneRRSigRecords -- lists:filter(erldns_records:match_wildcard(), ZoneRRSigRecords)), Zone#zone.keysets).
+  ZoneRRSigRecords = lists:flatten(lists:map(erldns_dnssec:zone_rrset_signer(Zone#zone.name, NonDnskeyRRs), Zone#zone.keysets)),
+  RRSigRecords = ZoneRRSigRecords -- lists:filter(erldns_records:match_wildcard(), ZoneRRSigRecords),
+  build_zone(Zone#zone.name, Zone#zone.version, ZoneRecords ++ KeyRRSigRecords ++ rewrite_soa_rrsig_ttl(ZoneRecords, RRSigRecords), Zone#zone.keysets).
 
 -spec(verify_zone(erldns:zone(), [dns:rr()], [dns:rr()]) -> boolean()).
 verify_zone(Zone, DnskeyRRs, KeyRRSigRecords) ->
