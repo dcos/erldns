@@ -16,6 +16,7 @@
 %% hands it to a worker process that has a set timeout.
 -module(erldns_worker).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns/include/dns.hrl").
 
 -define(DEFAULT_UDP_PROCESS_TIMEOUT, 500).
@@ -43,7 +44,7 @@ init([WorkerId]) ->
   {ok, #state{worker_process_sup = WorkerProcessSup, worker_process = WorkerProcess}}.
 
 handle_call(_Request, From, State) ->
-  lager:debug("Received unexpected call (from: ~p)", [From]),
+  ?LOG_DEBUG("Received unexpected call (from: ~p)", [From]),
   {reply, ok, State}.
 
 handle_cast({tcp_query, Socket, Bin}, State) ->
@@ -54,7 +55,7 @@ handle_cast({tcp_query, Socket, Bin}, State) ->
       {Id, _, Type, Modules} = State#state.worker_process,
       {noreply, State#state{worker_process = {Id, NewWorkerPid, Type, Modules}}};
     Error ->
-      lager:error("Error handling TCP query (error: ~p)", [Error]),
+      ?LOG_ERROR("Error handling TCP query (error: ~p)", [Error]),
       {noreply, State}
   end;
 handle_cast({udp_query, Socket, Host, Port, Bin}, State) ->
@@ -65,7 +66,7 @@ handle_cast({udp_query, Socket, Host, Port, Bin}, State) ->
       {Id, _, Type, Modules} = State#state.worker_process,
       {noreply, State#state{worker_process = {Id, NewWorkerPid, Type, Modules}}};
     Error ->
-      lager:error("Error handling UDP query (error: ~p)", [Error]),
+      ?LOG_ERROR("Error handling UDP query (error: ~p)", [Error]),
       {noreply, State}
   end;
 handle_cast(_Msg, State) ->
@@ -88,7 +89,7 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
         _ ->
           case erldns_decoder:decode_message(Bin) of
             {truncated, _, _} ->
-              lager:info("received truncated request (address: ~p)", [Address]),
+              ?LOG_INFO("received truncated request (address: ~p)", [Address]),
               ok;
             {trailing_garbage, DecodedMessage, _} ->
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess});
@@ -106,7 +107,7 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
   end;
 
 handle_tcp_dns_query(Socket, BadPacket, _) ->
-  lager:error("Received bad packet (packet: ~p)", BadPacket),
+  ?LOG_ERROR("Received bad packet (packet: ~p)", BadPacket),
   gen_tcp:close(Socket).
 
 handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) ->
@@ -118,11 +119,11 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
         exit:{timeout, _} ->
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
-          lager:error("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+          ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           {error, {Error, Reason}}
       end;
     true ->
-      lager:info("Dropping request that is not a question"),
+      ?LOG_INFO("Dropping request that is not a question"),
       {error, not_a_question}
   end.
 
@@ -130,7 +131,7 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
 %% @doc Handle DNS query that comes in over UDP
 -spec handle_udp_dns_query(gen_udp:socket(), gen_udp:ip(), inet:port_number(), binary(), {pid(), term()}) -> ok | {error, not_owner | timeout | inet:posix() | atom()} | {error, timeout, pid()}.
 handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess}) ->
-  %lager:debug("handle_udp_dns_query(~p ~p ~p)", [Socket, Host, Port]),
+  % ?LOG_DEBUG("handle_udp_dns_query(~p ~p ~p)", [Socket, Host, Port]),
   erldns_events:notify({start_udp, [{host, Host}]}),
   Result = case erldns_decoder:decode_message(Bin) of
     {trailing_garbage, DecodedMessage, _} ->
@@ -154,23 +155,23 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
         exit:{timeout, _} ->
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
-          lager:error("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+          ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           {error, {Error, Reason}}
       end;
     true ->
-      lager:info("Dropping request that is not a question"),
+      ?LOG_INFO("Dropping request that is not a question"),
       {error, not_a_question}
   end.
 
 -spec handle_timeout(dns:message(), pid(), term()) -> {error, timeout, term()} | {error, timeout}.
 handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId) ->
-  lager:debug("Worker timeout (message: ~p)", [DecodedMessage]),
-  
+  ?LOG_DEBUG("Worker timeout (message: ~p)", [DecodedMessage]),
+
   folsom_metrics:notify({worker_timeout_counter, {inc, 1}}),
   folsom_metrics:notify({worker_timeout_meter, 1}),
 
   TerminateResult = supervisor:terminate_child(WorkerProcessSup, WorkerProcessId),
-  lager:debug("Terminate result: ~p", [TerminateResult]),
+  ?LOG_DEBUG("Terminate result: ~p", [TerminateResult]),
 
   case supervisor:restart_child(WorkerProcessSup, WorkerProcessId) of
     {ok, NewChild} ->
@@ -178,6 +179,6 @@ handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId) ->
     {ok, NewChild, _} ->
       {error, timeout, NewChild};
     {error, Error} ->
-      lager:debug("Restart failed (error: ~p)", Error),
+      ?LOG_DEBUG("Restart failed (error: ~p)", Error),
       {error, timeout}
   end.

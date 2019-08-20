@@ -19,9 +19,17 @@
             ]}
         ]}
     ]},
-  {lager, [
-      {handlers, [
-          {lager_file_backend, [{file, "log/debug.log"}, {level, debug}]}
-        ]}
+
+  {kernel, [
+      {logger_level, notice},
+      {logger, [
+          {handler, default, logger_std_h,
+              #{level => notice}},
+          {handler, debug_log, logger_std_h,
+              #{level => debug,
+                config => #{
+                  type => file,
+                  file => "log/debug.log"}}}
+         ]}
     ]}
 ].

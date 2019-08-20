@@ -15,6 +15,7 @@
 %% @doc Worker module that processes a single DNS packet.
 -module(erldns_worker_process).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns/include/dns.hrl").
 
 -behaviour(gen_server).
@@ -50,14 +51,14 @@ init(_Args) ->
 handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
   % Uncomment this and the function implementation to simulate a timeout when
   % querying www.example.com with the test zones
-  % simulate_timeout(DecodedMessage),  
-  
+  % simulate_timeout(DecodedMessage),
+
   erldns_events:notify({start_handle, tcp, [{host, Address}]}),
   Response = erldns_handler:handle(DecodedMessage, {tcp, Address}),
   erldns_events:notify({end_handle, tcp, [{host, Address}]}),
   EncodedMessage = erldns_encoder:encode_message(Response),
   send_tcp_message(Socket, EncodedMessage),
-  {reply, ok, State}; 
+  {reply, ok, State};
 
 % Process a UDP request. May truncate the response.
 handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) ->
@@ -70,7 +71,7 @@ handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) 
 
   case erldns_encoder:encode_message(Response, [{'max_size', max_payload_size(Response)}]) of
     {false, EncodedMessage} ->
-      %lager:debug("Sending encoded response to ~p", [DestHost]),
+      % ?LOG_DEBUG("Sending encoded response to ~p", [DestHost]),
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
     {true, EncodedMessage, Message} when is_record(Message, dns_message)->
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
@@ -113,7 +114,7 @@ max_payload_size(Message) ->
 %simulate_timeout(DecodedMessage) ->
   %[Question] = DecodedMessage#dns_message.questions,
   %Name = Question#dns_query.name,
-  %lager:info("qname: ~p", [Name]),
+  % ?LOG_INFO("qname: ~p", [Name]),
   %case Name of
     %<<"www.example.com">> ->
       %timer:sleep(3000);

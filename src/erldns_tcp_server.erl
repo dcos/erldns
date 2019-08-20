@@ -33,6 +33,8 @@
 % Internal API
 -export([handle_request/3]).
 
+-include_lib("kernel/include/logger.hrl").
+
 -define(SERVER, ?MODULE).
 
 -record(state, {port, workers}).
@@ -44,7 +46,7 @@ start_link(Name, Family) ->
 
 -spec start_link(atom(), inet | inet6, inet:ip_address(), inet:port_number()) -> {ok, pid()} | ignore | {error, term()}.
 start_link(_Name, Family, Address, Port) ->
-  lager:info("Starting TCP server for ~p on address ~p port ~p", [Family, Address, Port]),
+  ?LOG_INFO("Starting TCP server for ~p on address ~p port ~p", [Family, Address, Port]),
   gen_nb_server:start_link(?MODULE, Address, Port, []).
 
 %% gen_server hooks
@@ -77,7 +79,7 @@ handle_request(Socket, Bin, State) ->
     {empty, _Queue} ->
       folsom_metrics:notify({packet_dropped_empty_queue_counter, {inc, 1}}),
       folsom_metrics:notify({packet_dropped_empty_queue_meter, 1}),
-      lager:info("Queue is empty, dropping packet"),
+      ?LOG_INFO("Queue is empty, dropping packet"),
       {noreply, State}
   end.
 

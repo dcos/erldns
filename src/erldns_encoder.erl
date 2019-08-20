@@ -16,6 +16,7 @@
 %% system crash.
 -module(erldns_encoder).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns/include/dns_records.hrl").
 
 -export([encode_message/1, encode_message/2]).
@@ -23,7 +24,7 @@
 %% @doc Encode the DNS message into its binary representation.
 %%
 %% Note that if the erldns catch_exceptions property is set in the
-%% configuration, then this function should never throw an 
+%% configuration, then this function should never throw an
 %% exception.
 -spec encode_message(dns:message()) -> dns:message_bin().
 encode_message(Response) ->
@@ -34,7 +35,7 @@ encode_message(Response) ->
         M -> M
       catch
         Exception:Reason ->
-          lager:error("Error encoding (response: ~p, exception: ~p, reason: ~p)", [Response, Exception, Reason]),
+          ?LOG_ERROR("Error encoding (response: ~p, exception: ~p, reason: ~p)", [Response, Exception, Reason]),
           encode_message(build_error_response(Response))
       end
   end.
@@ -43,7 +44,7 @@ encode_message(Response) ->
 %% Opts argument to pass in encoding options.
 %%
 %% Note that if the erldns catch_exceptions property is set in the
-%% configuration, then this function should never throw an 
+%% configuration, then this function should never throw an
 %% exception.
 -spec encode_message(dns:message(), [dns:encode_message_opt()]) ->
   {false, dns:message_bin()} |
@@ -58,7 +59,7 @@ encode_message(Response, Opts) ->
         M -> M
       catch
         Exception:Reason ->
-          lager:error("Error encoding with truncation (response: ~p, exception: ~p, reason: ~p)", [Response, Exception, Reason]),
+          ?LOG_ERROR("Error encoding with truncation (response: ~p, exception: ~p, reason: ~p)", [Response, Exception, Reason]),
           {false, encode_message(build_error_response(Response))}
       end
   end.

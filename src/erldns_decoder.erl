@@ -16,6 +16,7 @@
 %% system crash
 -module(erldns_decoder).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns/include/dns_records.hrl").
 
 -export([decode_message/1]).
@@ -23,7 +24,7 @@
 %% @doc Decode the binary data into its Erlang representation.
 %%
 %% Note that if the erldns catch_exceptions property is set in the
-%% configuration, then this function should never throw an 
+%% configuration, then this function should never throw an
 %% exception.
 -spec decode_message(dns:message_bin()) -> {dns:decode_error(), dns:message() | 'undefined', binary()} | dns:message().
 decode_message(Bin) ->
@@ -34,7 +35,7 @@ decode_message(Bin) ->
         M -> M
       catch
         Exception:Reason ->
-          lager:error("Error decoding message (data: ~p, exception: ~p, reason: ~p)", [Bin, Exception, Reason]),
+          ?LOG_ERROR("Error decoding message (data: ~p, exception: ~p, reason: ~p)", [Bin, Exception, Reason]),
           {formerr, Reason, Bin}
       end
   end.
