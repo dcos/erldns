@@ -15,6 +15,7 @@
 %% @doc Placeholder for eventual DNSSEC implementation.
 -module(erldns_dnssec).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns/include/dns.hrl").
 -include("erldns.hrl").
 
@@ -93,7 +94,7 @@ handle(Message, _Zone, _Qname, _Qtype, _DnssecRequested = true, []) ->
   % DNSSEC requested, zone unsigned
   Message;
 handle(Message, Zone, Qname, _Qtype, _DnssecRequested = true, _Keysets) ->
-  % lager:debug("DNSSEC requested (name: ~p)", [Zone#zone.name]),
+  % ?LOG_DEBUG("DNSSEC requested (name: ~p)", [Zone#zone.name]),
   Authority = lists:last(Zone#zone.authority),
   Ttl = Authority#dns_rr.data#dns_rrdata_soa.minimum,
   {ok, ZoneWithRecords} = erldns_zone_cache:get_zone_with_records(Zone#zone.name),
@@ -146,5 +147,3 @@ record_types_for_name(Name, RecordsByName) ->
   RecordsAtName = maps:get(Name, RecordsByName),
   TypesCovered = lists:map(fun(RR) -> RR#dns_rr.type end, RecordsAtName),
   lists:usort(TypesCovered ++ [?DNS_TYPE_RRSIG, ?DNS_TYPE_NSEC]).
-
-

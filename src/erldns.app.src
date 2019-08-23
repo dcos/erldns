@@ -6,7 +6,6 @@
                   stdlib,
                   inets,
                   crypto,
-                  lager,
                   dns,
                   jsx,
                   ssl,

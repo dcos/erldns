@@ -21,6 +21,7 @@
 
 -behavior(gen_server).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns/include/dns.hrl").
 -include("erldns.hrl").
 
@@ -121,7 +122,7 @@ get_zone_with_records(Name) ->
 get_authority(Message) when is_record(Message, dns_message) ->
   case Message#dns_message.questions of
     [] -> {error, no_question};
-    Questions -> 
+    Questions ->
       Question = lists:last(Questions),
       get_authority(Question#dns_query.name)
   end;
@@ -211,7 +212,7 @@ init([]) ->
 % gen_server callbacks
 
 handle_call(Message, _From, State) ->
-  lager:debug("Received unsupported call (message: ~p)", [Message]),
+  ?LOG_DEBUG("Received unsupported call (message: ~p)", [Message]),
   {reply, ok, State}.
 
 handle_cast({delete, Name}, State) ->
@@ -219,7 +220,7 @@ handle_cast({delete, Name}, State) ->
   {noreply, State};
 
 handle_cast(Message, State) ->
-  lager:debug("Received unsupported cast (message: ~p)", [Message]),
+  ?LOG_DEBUG("Received unsupported cast (message: ~p)", [Message]),
   {noreply, State}.
 
 handle_info(_Message, State) ->
@@ -277,7 +278,7 @@ build_named_index(Records) ->
 sign_zone(Zone = #zone{keysets = []}) ->
   Zone;
 sign_zone(Zone) ->
-  lager:debug("Signing zone (name: ~p)", [Zone#zone.name]),
+  ?LOG_DEBUG("Signing zone (name: ~p)", [Zone#zone.name]),
   ZoneRecords = lists:append(maps:values(Zone#zone.records_by_name)),
   {DnskeyRRs, NonDnskeyRRs} = lists:partition(erldns_records:match_type(?DNS_TYPE_DNSKEY), ZoneRecords),
   KeyRRSigRecords = lists:flatten(lists:map(erldns_dnssec:key_rrset_signer(Zone#zone.name, DnskeyRRs), Zone#zone.keysets)),
@@ -291,16 +292,16 @@ sign_zone(Zone) ->
 
 -spec(verify_zone(erldns:zone(), [dns:rr()], [dns:rr()]) -> boolean()).
 verify_zone(Zone, DnskeyRRs, KeyRRSigRecords) ->
-  lager:debug("Verify zone (name: ~p)", [Zone#zone.name]),
+  ?LOG_DEBUG("Verify zone (name: ~p)", [Zone#zone.name]),
   case lists:filter(fun(RR) -> RR#dns_rr.data#dns_rrdata_dnskey.flags =:= 257 end, DnskeyRRs) of
     [] -> false;
-    KSKs -> 
-      lager:debug("KSKs: ~p", [KSKs]),
+    KSKs ->
+      ?LOG_DEBUG("KSKs: ~p", [KSKs]),
       KSKDnskey = lists:last(KSKs),
       RRSig = lists:last(KeyRRSigRecords),
-      lager:debug("Attempting to verify RRSIG (key: ~p)", [KSKDnskey]),
+      ?LOG_DEBUG("Attempting to verify RRSIG (key: ~p)", [KSKDnskey]),
       VerifyResult = dnssec:verify_rrsig(RRSig, DnskeyRRs, [KSKDnskey], []),
-      lager:debug("KSK verification (verified?: ~p)", [VerifyResult]),
+      ?LOG_DEBUG("KSK verification (verified?: ~p)", [VerifyResult]),
       VerifyResult
   end.
 

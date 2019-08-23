@@ -17,6 +17,8 @@
 
 -export([load_zones/0]).
 
+-include_lib("kernel/include/logger.hrl").
+
 -define(FILENAME, "zones.json").
 
 % Public API
@@ -26,21 +28,21 @@
 load_zones() ->
   case file:read_file(filename()) of
     {ok, Binary} ->
-      lager:debug("Parsing zones JSON"),
+      ?LOG_DEBUG("Parsing zones JSON"),
       JsonZones = jsx:decode(Binary),
-      lager:debug("Putting zones into cache"),
+      ?LOG_DEBUG("Putting zones into cache"),
       lists:foreach(
         fun(JsonZone) ->
             Zone = erldns_zone_parser:zone_to_erlang(JsonZone),
             case erldns_zone_cache:put_zone(Zone) of
-              {error, Reason} -> lager:error("Failed to load zone (reason: ~p)", [JsonZone, Reason]);
+              {error, Reason} -> ?LOG_ERROR("Failed to load zone (reason: ~p)", [JsonZone, Reason]);
               _ -> ok
             end
         end, JsonZones),
-      lager:info("Loaded zones (count: ~p)", [length(JsonZones)]),
+      ?LOG_INFO("Loaded zones (count: ~p)", [length(JsonZones)]),
       {ok, length(JsonZones)};
     {error, Reason} ->
-      lager:error("Failed to load zones (reason: ~p)", [Reason]),
+      ?LOG_ERROR("Failed to load zones (reason: ~p)", [Reason]),
       {err, Reason}
   end.
 
@@ -50,5 +52,3 @@ filename() ->
     {ok, Filename} -> Filename;
     _ -> ?FILENAME
   end.
-
-

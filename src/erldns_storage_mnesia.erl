@@ -17,6 +17,7 @@
 
 -dialyzer({nowarn_function, list_table/1}).
 
+-include_lib("kernel/include/logger.hrl").
 -include("erldns.hrl").
 
 %% API
@@ -40,7 +41,7 @@ create(schema) ->
   ok = ensure_mnesia_started(),
   case erldns_config:storage_dir() of
     undefined ->
-      lager:error("You need to add a directory for mnesia in erldns.config");
+      ?LOG_ERROR("You need to add a directory for mnesia in erldns.config");
     Dir ->
       ok = filelib:ensure_dir(Dir),
       ok = application:set_env(mnesia, dir, Dir)
@@ -49,11 +50,11 @@ create(schema) ->
     ok ->
       ok;
     {error, Reason} ->
-      lager:warning("Could not stop mnesia (reason: ~p)", [Reason])
+      ?LOG_WARNING("Could not stop mnesia (reason: ~p)", [Reason])
   end,
   case mnesia:create_schema([node()]) of
     {error, {_, {already_exists, _}}} ->
-      lager:warning("The schema already exists (node: ~p)", [node()]),
+      ?LOG_WARNING("The schema already exists (node: ~p)", [node()]),
       ok;
     ok ->
       ok
@@ -73,7 +74,7 @@ create(zones) ->
                             {record_name, zone},
                             {disc_copies, [node()]}]) of
     {aborted, {already_exists, zones}} ->
-      lager:warning("The zone table already exists (node: ~p)", [node()]),
+      ?LOG_WARNING("The zone table already exists (node: ~p)", [node()]),
       ok;
     {atomic, ok} ->
       ok;
@@ -86,7 +87,7 @@ create(authorities) ->
                            [{attributes, record_info(fields, authorities)},
                             {disc_copies, [node()]}]) of
     {aborted, {already_exists, authorities}} ->
-      lager:warning("The authority table already exists (node: ~p)", [node()]),
+      ?LOG_WARNING("The authority table already exists (node: ~p)", [node()]),
       ok;
     {atomic, ok} ->
       ok;

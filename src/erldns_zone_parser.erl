@@ -17,6 +17,7 @@
 
 -behavior(gen_server).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns/include/dns.hrl").
 -include("erldns.hrl").
 
@@ -63,13 +64,13 @@ zone_to_erlang(Zone) ->
 %% @doc Register a list of custom parser modules.
 -spec register_parsers([module()]) -> ok.
 register_parsers(Modules) ->
-  lager:info("Registering custom parsers (modules: ~p)", [Modules]),
+  ?LOG_INFO("Registering custom parsers (modules: ~p)", [Modules]),
   gen_server:call(?SERVER, {register_parsers, Modules}).
 
 %% @doc Regiaer a custom parser module.
 -spec register_parser(module()) -> ok.
 register_parser(Module) ->
-  lager:info("Registering custom parser (module: ~p)", [Module]),
+  ?LOG_INFO("Registering custom parser (module: ~p)", [Module]),
   gen_server:call(?SERVER, {register_parser, Module}).
 
 -spec list_parsers() -> [module()].
@@ -129,7 +130,7 @@ json_to_erlang([{<<"name">>, Name}, {<<"sha">>, Sha}, {<<"records">>, JsonRecord
                         {} ->
                           case try_custom_parsers(Data, Parsers) of
                             {} ->
-                                lager:warning("Unsupported record (data: ~p)", [Data]),
+                                ?LOG_WARNING("Unsupported record (data: ~p)", [Data]),
                                 {};
                             ParsedRecord -> ParsedRecord
                           end;
@@ -226,7 +227,7 @@ try_custom_parsers(Data, [Parser|Rest]) ->
 
 % Internal converters
 json_record_to_erlang([Name, Type, _Ttl, null, _]) ->
-  lager:error("Record has null data (name: ~p, type: ~p)", [Name, Type]),
+  ?LOG_ERROR("Record has null data (name: ~p, type: ~p)", [Name, Type]),
   {};
 
 json_record_to_erlang([Name, <<"SOA">>, Ttl, Data, _Context]) ->
@@ -259,7 +260,7 @@ json_record_to_erlang([Name, <<"A">>, Ttl, Data, _Context]) ->
     {ok, Address} ->
       #dns_rr{name = Name, type = ?DNS_TYPE_A, data = #dns_rrdata_a{ip = Address}, ttl = Ttl};
     {error, Reason} ->
-      lager:error("Failed to parse A record address (ip: ~p, reason: ~p)", [Ip, Reason]),
+      ?LOG_ERROR("Failed to parse A record address (ip: ~p, reason: ~p)", [Ip, Reason]),
       {}
   end;
 
@@ -269,7 +270,7 @@ json_record_to_erlang([Name, <<"AAAA">>, Ttl, Data, _Context]) ->
     {ok, Address} ->
       #dns_rr{name = Name, type = ?DNS_TYPE_AAAA, data = #dns_rrdata_aaaa{ip = Address}, ttl = Ttl};
     {error, Reason} ->
-      lager:error("Failed to parse AAAA record address (ip: ~p, reason: ~p)", [Ip, Reason]),
+      ?LOG_ERROR("Failed to parse AAAA record address (ip: ~p, reason: ~p)", [Ip, Reason]),
       {}
   end;
 
@@ -332,7 +333,7 @@ json_record_to_erlang([Name, <<"TXT">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
-      lager:error("Error parsing TXT (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason])
+      ?LOG_ERROR("Error parsing TXT (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason])
   end;
 
 
@@ -365,7 +366,7 @@ json_record_to_erlang([Name, <<"SSHFP">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
-      lager:error("Error parsing SSHFP (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
+      ?LOG_ERROR("Error parsing SSHFP (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
       {}
   end;
 
@@ -410,7 +411,7 @@ json_record_to_erlang([Name, <<"DS">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
-      lager:error("Error parsing DS (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
+      ?LOG_ERROR("Error parsing DS (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
       {}
   end;
 
@@ -429,7 +430,7 @@ json_record_to_erlang([Name, <<"CDS">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
-      lager:error("Error parsing CDS (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
+      ?LOG_ERROR("Error parsing CDS (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
       {}
   end;
 
@@ -449,7 +450,7 @@ json_record_to_erlang([Name, <<"DNSKEY">>, Ttl, Data, _Context]) ->
            ttl = Ttl})
   catch
     Exception:Reason ->
-      lager:error("Error parsing DNSKEY (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
+      ?LOG_ERROR("Error parsing DNSKEY (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
       {}
   end;
 
@@ -469,7 +470,7 @@ json_record_to_erlang([Name, <<"CDNSKEY">>, Ttl, Data, _Context]) ->
            ttl = Ttl})
   catch
     Exception:Reason ->
-      lager:error("Error parsing CDNSKEY (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
+      ?LOG_ERROR("Error parsing CDNSKEY (name: ~p, data: ~p, exception: ~p, reason: ~p)", [Name, Data, Exception, Reason]),
       {}
   end;
 
